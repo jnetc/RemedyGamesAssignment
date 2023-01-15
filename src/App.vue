@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted, onUpdated } from 'vue';
+import { ref, onMounted, onUpdated, computed } from 'vue';
 
 const PROGRESS_BAR_WIDTH = 160; // Units '160px' = '10rem'
 const ALL_SOURCE_POINTS = 2000; // All points includes in progress bar
-const INITIAL_TIME = 500; // ms
-let SPEED_ANIMATION = 20;
+let COUNTER_SPEED = 20; // min 15 ->
+let COUNTER_DURATION = ref(500); // 500ms
+const INITIAL_TIME = 500; // 500 ms
 let DEATH_VALUE: number = 10; // 10% of 100
 let PROGRESS = 0;
 // const PLAY = ref(false);
 
-const initialCounterValue = ref(0);
-const initialSourceValue = ref(0);
-// const currTime = ref(0);
+const initSourceValue = ref(0);
+const initCounterValue = ref(0);
+const initCounterDuration = ref(0);
 
+const sourceUIRef = ref<HTMLElement | null>(null);
 const counterRef = ref<HTMLElement | null>(null);
 const amountRef = ref<HTMLElement | null>(null);
-const sourceUIRef = ref<HTMLElement | null>(null);
+const progressRef = ref<HTMLElement | null>(null);
 
 // Initial enemy values
 let oneEnemy: number = 400;
@@ -28,13 +30,19 @@ const max = ref(0);
 const min = ref(0);
 const forMax = 300;
 const forMin = 100;
-const setToPauseCounter = 500; // ms
-const hideCounterAfter = setToPauseCounter + 500; // where 500 = 0.5s in css 'source-UI-counter' class
+const setToPauseCounter = computed(() => COUNTER_DURATION.value); // 500 ms
+const prepareToHideCounter = computed(() => COUNTER_DURATION.value * 2); //  500ms + 500ms
+const prepareToHideSource = computed(() => COUNTER_DURATION.value * 3);
 
 function increaseValue(source: number) {
   // Find appropriate duration time for current source
   // :style="{ transitionDuration: `${currTime}s` }"
-  // currTime.value = source / INITIAL_TIME;
+  // initCounterDuration.value = source / INITIAL_TIME;
+
+  // console.log('_COUNTER_DURATION', COUNTER_DURATION.value);
+  // console.log('_setToPauseCounter', setToPauseCounter.value);
+  // console.log('prepareToHideCounter', prepareToHideCounter.value);
+  // console.log('prepareToHideSource', prepareToHideSource.value);
 
   max.value = (source / ALL_SOURCE_POINTS) * forMax;
   min.value = (source / ALL_SOURCE_POINTS) * forMin;
@@ -53,25 +61,26 @@ function increaseValue(source: number) {
 function counterCalc(source: number) {
   const step = setInterval(() => {
     // Increasing and saving random value for each iteration
-    let accumulation =
-      initialCounterValue.value + Math.floor(Math.random() * (max.value - min.value));
-    // Checking, and then stopping iteration and cleaning up
+    let accumulation = initCounterValue.value + Math.floor(Math.random() * (max.value - min.value));
+    // Checking, and then stopping, resseting iteration
     if (accumulation >= source) {
       // Adding the last value to the counter
-      initialCounterValue.value = source;
+      initCounterValue.value = source;
+
       // Small break before continuing
       const addPause = setTimeout(() => {
         counterRef.value?.classList.replace('move-to-show', 'move-to-hide');
-        increaseProgress(source);
         commonSourceCalc(source);
-      }, setToPauseCounter);
-      // Hiding the counter and cleanig timeouts / interval
+      }, setToPauseCounter.value);
+
+      // Hiding and resetting the counter
       const removePause = setTimeout(() => {
         counterRef.value?.classList.remove('move-to-hide');
+        increaseProgress(source);
         resetToInitialValue();
-      }, hideCounterAfter);
+      }, prepareToHideCounter.value);
 
-      // Hide
+      // Hiding and cleanig timeouts
       counterRef.value?.addEventListener(
         'transitionend',
         () => {
@@ -81,7 +90,7 @@ function counterCalc(source: number) {
             clearTimeout(addPause);
             clearTimeout(removePause);
             clearTimeout(hideSourceUI);
-          }, 1500);
+          }, prepareToHideSource.value);
         },
         { once: true }
       );
@@ -92,27 +101,26 @@ function counterCalc(source: number) {
     // console.log('_source');
     counterRef.value?.classList.add('move-to-show');
     // Seting accumulation value to the initial value
-    initialCounterValue.value = accumulation;
-  }, SPEED_ANIMATION);
+    initCounterValue.value = accumulation;
+  }, COUNTER_SPEED);
 }
 
 function commonSourceCalc(source: number) {
-  const accBreak = initialSourceValue.value + source;
+  const accBreak = initSourceValue.value + source;
 
   const step = setInterval(() => {
     // Increasing and saving random value for each iteration
-    let accumulation =
-      initialSourceValue.value + Math.floor(Math.random() * (max.value - min.value));
+    let accumulation = initSourceValue.value + Math.floor(Math.random() * (max.value - min.value));
     // Checking, and then stopping iteration and cleaning up
     if (accumulation >= accBreak) {
       // Adding the last value to the counter
-      initialSourceValue.value = accBreak;
+      initSourceValue.value = accBreak;
       clearInterval(step);
       return;
     }
     // Seting accumulation value to the initial value
-    initialSourceValue.value = accumulation;
-  }, SPEED_ANIMATION);
+    initSourceValue.value = accumulation;
+  }, COUNTER_SPEED);
 }
 
 function increaseProgress(step: number) {
@@ -129,16 +137,30 @@ function hideUIElement(event: Event) {
 function resetToInitialValue() {
   // Resetting counter to initial value for prepare to the next iteration
   const resetCounterValue = setTimeout(() => {
-    initialCounterValue.value = 0;
+    initCounterValue.value = 0;
     clearTimeout(resetCounterValue);
   }, 1000);
+}
+
+function switchProgressClass(event: Event) {
+  let text = (event.currentTarget as HTMLButtonElement).textContent;
+  if (text === 'Smooth') {
+    (event.currentTarget as HTMLButtonElement).textContent = 'Steps';
+  } else {
+    (event.currentTarget as HTMLButtonElement).textContent = 'Smooth';
+  }
+  progressRef.value?.classList.toggle('steps');
 }
 </script>
 
 <template>
   <main>
     <section class="scene">
-      <div class="source-UI" ref="sourceUIRef">
+      <div
+        class="source-UI"
+        ref="sourceUIRef"
+        :style="{ transitionDuration: `${COUNTER_DURATION}ms` }"
+      >
         <div class="source-UI-icon">
           <svg viewBox="0 0 34 32" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
@@ -156,13 +178,17 @@ function resetToInitialValue() {
           </svg>
         </div>
         <!-- <span class="source-UI-amount" ref="amountRef">+0</span> -->
-        <span class="source-UI-amount" ref="amountRef">{{ initialSourceValue }}</span>
-        <span class="source-UI-counter" ref="counterRef" @transitionend="hideUIElement">{{
-          initialCounterValue
-        }}</span>
+        <span class="source-UI-amount" ref="amountRef">{{ initSourceValue }}</span>
+        <span
+          class="source-UI-counter"
+          ref="counterRef"
+          :style="{ transitionDuration: `${COUNTER_DURATION}ms` }"
+          @transitionend="hideUIElement"
+          >{{ initCounterValue }}</span
+        >
       </div>
       <div class="progress-bar">
-        <div class="progress" :style="{ width: `${PROGRESS}px` }"></div>
+        <div class="progress" ref="progressRef" :style="{ width: `${PROGRESS}px` }"></div>
       </div>
       <img src="/bg.webp" alt="bg" />
     </section>
@@ -188,13 +214,33 @@ function resetToInitialValue() {
         <button class="add-source-btn" @click="increaseValue(fourthEnemy)">Check</button>
       </div>
       <div class="input-element">
+        <label for="duration">Counter animation (ms)</label>
+        <input
+          type="text"
+          name="duration"
+          id="duration"
+          placeholder="Default 500ms"
+          v-model.number="COUNTER_DURATION"
+        />
+      </div>
+      <div class="input-element">
+        <label for="speed">Counter speed (min 15)</label>
+        <input
+          type="text"
+          name="speed"
+          id="speed"
+          placeholder="Default 20"
+          v-model.number="COUNTER_SPEED"
+        />
+      </div>
+      <div class="input-element">
         <label for="remove-source">Remove source %</label>
         <input type="text" name="remove" id="remove-source" v-model.number.trim="DEATH_VALUE" />
         <button class="remove-source-btn">Remove</button>
       </div>
       <div class="input-element">
-        <label for="speed">Speed animation</label>
-        <input type="text" name="speed" id="speed" v-model.number="SPEED_ANIMATION" />
+        <label for="remove-source">Bar animation smooth/steps</label>
+        <button class="source-btn" @click="switchProgressClass">Smooth</button>
       </div>
     </section>
   </main>
@@ -213,13 +259,12 @@ function resetToInitialValue() {
   width: 400px;
   aspect-ratio: 1;
   position: relative;
-  resize: both;
 }
 img {
   max-width: 100%;
   height: auto;
 }
-/* Progress bar */
+/* PROGRESS BAR */
 .progress-bar {
   width: 10rem;
   height: 1rem;
@@ -228,7 +273,7 @@ img {
   bottom: 5rem;
   background-color: var(--bar-backdrop);
 }
-/* Cross ICON */
+/* ICON cross  */
 .progress-bar::after,
 .progress-bar::before {
   content: '';
@@ -246,10 +291,15 @@ img {
   position: absolute;
   inset-block: 0 0;
   background-color: var(--bar-color);
-  transition: all 0.3s ease-in-out;
+  transition-duration: 0.5s;
+  transition-property: width;
+  transition-timing-function: ease-in-out;
+}
+.progress.steps {
+  transition-timing-function: steps(4, jump-start);
 }
 
-/* UI save up component*/
+/* SOURCE component*/
 .source-UI {
   display: grid;
   grid-template-columns: 1.3rem auto;
@@ -257,9 +307,12 @@ img {
   align-items: baseline;
   position: absolute;
   left: 3rem;
-  bottom: 8.5rem;
-  opacity: 0; /* METKA */
-  transition: opacity 0.5s ease-in-out;
+  bottom: 7.5rem;
+  opacity: 0;
+  /* duration changes dynamically */
+  /* transition-duration: 0.5s; */
+  transition-property: opacity;
+  transition-timing-function: ease-in-out;
 }
 .source-UI__show {
   opacity: 1;
@@ -275,14 +328,15 @@ img {
 }
 
 .source-UI-counter {
-  opacity: 0; /* METKA */
+  opacity: 0;
   color: var(--add-hp);
-  transition-duration: 0.5s;
-  transition-property: opacity transform;
+  /* duration changes dynamically */
+  /* transition-duration: 0.5s; */
+  transition-property: opacity, transform;
   transition-timing-function: ease-in-out;
   transform: translate3d(0px, -2.25rem, 0);
 }
-/* Cross ICON */
+/* ICON cross */
 .source-UI-counter::after,
 .source-UI-counter::before {
   content: '';
@@ -296,7 +350,7 @@ img {
 .source-UI-counter::before {
   transform: rotate(90deg);
 }
-/* transition counter */
+/* transition counter classes */
 .move-to-show {
   opacity: 1;
   transform: translate3d(0px, -1.125rem, 0);
@@ -329,9 +383,16 @@ img {
 }
 .input-element button {
   margin-block-start: 0.3rem;
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 1rem;
   font-size: 1.1rem;
   font-weight: bold;
+}
+.input-element:last-child button {
+  margin-block-start: 0;
+}
+.add-source {
+  /* color: var(--ui-element); */
+  background-color: var(--bar-backdrop);
 }
 .add-source-btn {
   color: var(--bar-backdrop);
