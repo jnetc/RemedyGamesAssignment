@@ -1,17 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, onUpdated, computed } from 'vue';
-import EnemySource from './components/EnemySource.vue';
+import { ref, computed } from 'vue';
 
 const PROGRESS_BAR_WIDTH = 160; // Units '160px' = '10rem'
 const ALL_SOURCE_POINTS = 2000; // All points includes in progress bar
 let COUNTER_SPEED = 20; // min 15 ->
-let COUNTER_DURATION = ref(500); // 500ms
+const COUNTER_DURATION = ref(500); // 500ms
 let DEATH_VALUE: number = 10; // 10% of 100
-let PROGRESS = 0;
+const PROGRESS = ref(0);
+const ONCE = ref(false); // Prevent to store the animation events
 
 const initSourceValue = ref(0);
 const initCounterValue = ref(0);
-const initCounterSum = ref(0);
 
 const sourceUIRef = ref<HTMLElement | null>(null);
 const counterRef = ref<HTMLElement | null>(null);
@@ -19,7 +18,7 @@ const amountRef = ref<HTMLElement | null>(null);
 const progressRef = ref<HTMLElement | null>(null);
 
 // Initial enemy values
-let oneEnemy: number = 1800;
+let oneEnemy: number = 400;
 let secondEnemy: number = 330;
 let thirdEnemy: number = 250;
 let fourthEnemy: number = 100;
@@ -29,15 +28,10 @@ const max = ref(0);
 const min = ref(0);
 const forMax = 300;
 const forMin = 100;
-const setToPauseCounter = computed(() => COUNTER_DURATION.value); // 500 ms
-const prepareToHideCounter = computed(() => COUNTER_DURATION.value * 2); //  500ms + 500ms
-const prepareToHideSource = computed(() => COUNTER_DURATION.value * 3);
 
 function increaseValue(source: number) {
-  // Find appropriate duration time for current source
   // :style="{ transitionDuration: `${currTime}s` }"
   // initCounterDuration.value = source / INITIAL_TIME;
-  // console.log('_COUNTER_DURATION', COUNTER_DURATION.value);
 
   // Calculate min and max values for each iteration in current source
   max.value = (source / ALL_SOURCE_POINTS) * forMax;
@@ -46,11 +40,7 @@ function increaseValue(source: number) {
   sourceUIRef.value?.classList.add('source-UI__show');
 
   // Calling the counter when source-UI class will be visible
-  sourceUIRef.value?.addEventListener('transitionend', () => {
-      counterCalc(source)
-    },
-    { once: true }
-  );
+  sourceUIRef.value?.addEventListener('transitionend', () => counterCalc(source), { once: true });
 }
 
 function counterCalc(source: number) {
@@ -61,43 +51,41 @@ function counterCalc(source: number) {
     if (accumulation >= source) {
       // Adding the last value to the counter
       initCounterValue.value = source;
-      initCounterSum.value = initCounterSum.value + source;
 
-      // Small break before continuing
-      const addPause = setTimeout(() => {
-        counterRef.value?.classList.replace('move-to-show', 'move-to-hide');
-        commonSourceCalc(source);
-      }, setToPauseCounter.value);
+      counterRef.value?.addEventListener('animationend', (e: AnimationEvent) => steps(e, source), {
+        once: ONCE.value,
+      });
 
-      // Hiding and resetting the counter
-      const removePause = setTimeout(() => {
-        counterRef.value?.classList.remove('move-to-hide');
-        increaseProgress(source);
-      }, prepareToHideCounter.value);
+      sourceUIRef.value?.addEventListener('transitionend', () => increaseProgress(source), {
+        once: true,
+      });
 
-      // Hiding and cleanig timeouts
-      counterRef.value?.addEventListener('transitionend', () => {
-          const hideSourceUI = setTimeout(() => {
-            //Resetting counter to initial value for prepare to the next iteration
-            initCounterValue.value = 0;
-            sourceUIRef.value?.classList.remove('source-UI__show');
-            // Clear all timeouts
-            clearTimeout(addPause);
-            clearTimeout(removePause);
-            clearTimeout(hideSourceUI);
-          }, prepareToHideSource.value);
-        },
-        { once: true }
-      );
       clearInterval(step);
       return;
     }
 
-    // console.log('_source');
     counterRef.value?.classList.add('move-to-show');
     // Seting accumulation value to the initial value
     initCounterValue.value = accumulation;
   }, COUNTER_SPEED);
+}
+
+// Checking the current animation name and doing some action inside each step
+function steps(event: AnimationEvent, source: number) {
+  if (event.animationName === 'counter-show') {
+    console.log('step 1', event.animationName);
+
+    commonSourceCalc(source);
+    counterRef.value?.classList.replace('move-to-show', 'move-to-hide');
+  }
+  if (event.animationName === 'counter-hide') {
+    console.log('step_2', event.animationName);
+
+    initCounterValue.value = 0;
+    counterRef.value?.classList.remove('move-to-hide');
+    sourceUIRef.value?.classList.remove('source-UI__show');
+    ONCE.value = true;
+  }
 }
 
 function commonSourceCalc(source: number) {
@@ -106,15 +94,6 @@ function commonSourceCalc(source: number) {
   const step = setInterval(() => {
     // Increasing and saving random value for each iteration
     let accumulation = initSourceValue.value + Math.floor(Math.random() * (max.value - min.value));
-    // If the accumulation exceeds the max. amount of source points,
-    // the iteration will stop.
-    if (accumulation >= ALL_SOURCE_POINTS) {
-      initSourceValue.value = ALL_SOURCE_POINTS;
-
-      // progressRef.value?.removeEventListener('transitionend', function () {}, true);
-      clearInterval(step);
-      return;
-    }
     // Checking, and then stopping iteration and cleaning up
     if (accumulation >= accBreak) {
       // Adding the last value to the counter
@@ -130,61 +109,52 @@ function commonSourceCalc(source: number) {
 function increaseProgress(step: number) {
   // Calculating, how many px we will add on this step
   let calc = (PROGRESS_BAR_WIDTH * step) / ALL_SOURCE_POINTS;
-  // Adding the calculated step to previous value of the progress
-  const progressWithStep = (PROGRESS += calc);
-  // If progressWithStep exceed the entire progress bar
-  if (progressWithStep >= PROGRESS_BAR_WIDTH) {
-    PROGRESS = PROGRESS_BAR_WIDTH;
-
-    progressRef.value?.addEventListener( 'transitionend', function () {
-        this.classList.add('is-full-bar');
-      },
-      { once: true }
-    );
-    return PROGRESS;
-  }
-
-  return progressWithStep;
+  // Adding the calculated step to previous value
+  return (PROGRESS.value += calc);
 }
 
 function switchProgressClass(event: Event) {
-  let text = (event.currentTarget as HTMLButtonElement).textContent;
-
-  if (text === 'Smooth') {
-    (event.currentTarget as HTMLButtonElement).textContent = 'Steps';
+  let text = event.currentTarget as HTMLButtonElement;
+  if (text.textContent === 'Smooth') {
+    text.textContent = 'Steps';
   } else {
-    (event.currentTarget as HTMLButtonElement).textContent = 'Smooth';
+    text.textContent = 'Smooth';
   }
   progressRef.value?.classList.toggle('steps');
 }
-
-const test = (num: number) => {
-  console.log('test', num);
-  return num;
-};
 </script>
 
 <template>
   <main>
     <section class="scene">
-      <div class="source-UI" ref="sourceUIRef" :style="{ transitionDuration: `${COUNTER_DURATION}ms` }">
+      <div
+        class="source-UI"
+        ref="sourceUIRef"
+        :style="{ transitionDuration: `${COUNTER_DURATION}ms` }"
+      >
         <div class="source-UI-icon">
           <svg viewBox="0 0 34 32" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M0.998199 31.9837L6.43541 11.4877C6.46181 11.3882 6.60326 11.3887 6.62891 11.4885L11.8997 31.9837H0.998199Z"
-              fill="white" />
+              fill="white"
+            />
             <path
               d="M23.0895 31.9837L28.5267 11.4877C28.5531 11.3882 28.6946 11.3887 28.7202 11.4885L33.991 31.9837H23.0895Z"
-              fill="white" />
+              fill="white"
+            />
             <path
               d="M11.9192 21.3689L17.3564 0.872988C17.3828 0.773454 17.5243 0.773991 17.5499 0.873723L22.8207 21.3689H11.9192Z"
-              fill="white" />
+              fill="white"
+            />
           </svg>
         </div>
         <span class="source-UI-amount" ref="amountRef">{{ initSourceValue }}</span>
-        <span class="source-UI-counter" ref="counterRef" :style="{ transitionDuration: `${COUNTER_DURATION}ms` }">
-          {{ initCounterValue }}
-        </span>
+        <span
+          class="source-UI-counter"
+          ref="counterRef"
+          :style="{ animationDuration: `${COUNTER_DURATION}ms` }"
+          >{{ initCounterValue }}</span
+        >
       </div>
       <div class="progress-bar">
         <div class="progress" ref="progressRef" :style="{ width: `${PROGRESS}px` }"></div>
@@ -192,7 +162,6 @@ const test = (num: number) => {
       <img src="/bg.webp" alt="bg" />
     </section>
     <section class="ui-elements">
-      <!-- <enemy-source :onClick="test"></enemy-source> -->
       <div class="input-element">
         <label for="one-source">One enemy source</label>
         <input type="text" name="one" id="one-source" v-model.number.trim="oneEnemy" />
@@ -214,19 +183,6 @@ const test = (num: number) => {
         <button class="add-source-btn" @click="increaseValue(fourthEnemy)">Check</button>
       </div>
       <div class="input-element">
-        <label for="duration">Counter animation (ms)</label>
-        <input
-          type="text"
-          name="duration"
-          id="duration"
-          placeholder="Default 500ms"
-          v-model.number="COUNTER_DURATION" />
-      </div>
-      <div class="input-element">
-        <label for="speed">Counter speed (min 15)</label>
-        <input type="text" name="speed" id="speed" placeholder="Default 20" v-model.number="COUNTER_SPEED" />
-      </div>
-      <div class="input-element">
         <label for="remove-source">Remove source %</label>
         <input type="text" name="remove" id="remove-source" v-model.number.trim="DEATH_VALUE" />
         <button class="remove-source-btn">Remove</button>
@@ -234,6 +190,16 @@ const test = (num: number) => {
       <div class="input-element">
         <label for="remove-source">Bar animation smooth/steps</label>
         <button class="source-btn" @click="switchProgressClass">Smooth</button>
+      </div>
+      <div class="input-element">
+        <label for="duration">Counter animation (ms)</label>
+        <input
+          type="text"
+          name="duration"
+          id="duration"
+          placeholder="Default 500ms"
+          v-model.number="COUNTER_DURATION"
+        />
       </div>
     </section>
   </main>
@@ -285,23 +251,13 @@ img {
   inset-block: 0 0;
   background-color: var(--bar-color);
   transition-duration: 0.5s;
-  transition-property: width, transform;
+  transition-property: width;
   transition-timing-function: ease-in-out;
-  box-shadow: 0 0 0 0px hsl(0 0% 255% / 0.5);
-}
-
-.is-full-bar {
-  animation: full-bar 0.8s ease-out infinite;
-
 }
 .progress.steps {
   transition-timing-function: steps(4, jump-start);
 }
-@keyframes full-bar {
-  100% {
-    box-shadow: 0 0 0 0.3rem hsl(0 0% 255% / 0);
-  }
-}
+
 /* SOURCE component*/
 .source-UI {
   display: grid;
@@ -333,10 +289,6 @@ img {
 .source-UI-counter {
   opacity: 0;
   color: var(--add-hp);
-  /* duration changes dynamically */
-  /* transition-duration: 0.5s; */
-  transition-property: opacity, transform;
-  transition-timing-function: ease-in-out;
   transform: translate3d(0px, -2.25rem, 0);
 }
 /* ICON cross */
@@ -353,14 +305,39 @@ img {
 .source-UI-counter::before {
   transform: rotate(90deg);
 }
+
 /* transition counter classes */
+.move-to-show,
+.move-to-hide {
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
+}
 .move-to-show {
-  opacity: 1;
-  transform: translate3d(0px, -1.125rem, 0);
+  animation-name: counter-show;
 }
 .move-to-hide {
-  transform: translate3d(0px, 0, 0);
-  opacity: 0;
+  animation-name: counter-hide;
+}
+
+@keyframes counter-show {
+  0% {
+    transform: translate3d(0px, -2.25rem, 0);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(0px, -1.125rem, 0);
+    opacity: 1;
+  }
+}
+@keyframes counter-hide {
+  from {
+    transform: translate3d(0px, -1.125rem, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(0px, 0, 0);
+    opacity: 0;
+  }
 }
 
 /* UI CONTROL PANEL */
