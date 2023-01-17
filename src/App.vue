@@ -1,59 +1,120 @@
 <script setup lang="ts">
-import { ref, onMounted, onUpdated, computed } from 'vue';
+import { ref, Ref, onMounted, onUpdated, computed } from 'vue';
 import EnemySource from './components/EnemySource.vue';
 
 const PROGRESS_BAR_WIDTH = 160; // Units '160px' = '10rem'
 const ALL_SOURCE_POINTS = 2000; // All points includes in progress bar
 let COUNTER_SPEED = 20; // min 15 ->
 let COUNTER_DURATION = ref(500); // 500ms
-let DEATH_VALUE: number = 10; // 10% of 100
 let PROGRESS = 0;
 
 const initSourceValue = ref(0);
 const initCounterValue = ref(0);
 const initCounterSum = ref(0);
 
+// HTML elements
 const sourceUIRef = ref<HTMLElement | null>(null);
 const counterRef = ref<HTMLElement | null>(null);
 const amountRef = ref<HTMLElement | null>(null);
 const progressRef = ref<HTMLElement | null>(null);
 
 // Initial enemy values
-let oneEnemy: number = 1800;
-let secondEnemy: number = 330;
-let thirdEnemy: number = 250;
-let fourthEnemy: number = 100;
+let ONE_ENEMY: number = 1800;
+let SECOND_ENEMY: number = 530;
+let THIRD_ENEMY: number = 250;
+let FOURTH_ENEMY: number = 100;
+let DEATH_VALUE: number = 10; // 10% of 100
 
 // Randomize resouce value
 const max = ref(0);
 const min = ref(0);
 const forMax = 300;
 const forMin = 100;
+
+// Timeout delays
 const setToPauseCounter = computed(() => COUNTER_DURATION.value); // 500 ms
 const prepareToHideCounter = computed(() => COUNTER_DURATION.value * 2); //  500ms + 500ms
 const prepareToHideSource = computed(() => COUNTER_DURATION.value * 3);
 
-function increaseValue(source: number) {
-  // Find appropriate duration time for current source
-  // :style="{ transitionDuration: `${currTime}s` }"
-  // initCounterDuration.value = source / INITIAL_TIME;
-  // console.log('_COUNTER_DURATION', COUNTER_DURATION.value);
+const counterIncreaseAnimation = ref(false)
+
+function sourceUI(source: number, calculation: 'increase' | 'decrease') {
+  // Converting percents to points
+  if (calculation === 'decrease') {
+    source = ALL_SOURCE_POINTS * (source / 100)
+  }
 
   // Calculate min and max values for each iteration in current source
   max.value = (source / ALL_SOURCE_POINTS) * forMax;
   min.value = (source / ALL_SOURCE_POINTS) * forMin;
 
-  sourceUIRef.value?.classList.add('source-UI__show');
+  sourceUIRef.value?.classList.add('show-element');
+  counterRef.value?.classList.add('reset-counter-position')
 
-  // Calling the counter when source-UI class will be visible
-  sourceUIRef.value?.addEventListener('transitionend', () => {
-      counterCalc(source)
-    },
+  // Calling the counter when source class will be visible
+  sourceUIRef.value?.addEventListener('transitionend', function (event: TransitionEvent) {
+    counterRef.value?.classList.remove('reset-counter-position')
+
+    if (calculation === 'decrease') {
+      counterIncreaseAnimation.value = false
+      lostSource(source)
+      return
+    }
+    counterIncreaseAnimation.value = true
+    collectSource(source)
+  },
     { once: true }
   );
 }
+function lostSource(source: number) {
 
-function counterCalc(source: number) {
+  const showCounter = setTimeout(() => {
+    counterRef.value?.classList.add('show-element')
+    clearTimeout(showCounter)
+  }, 0)
+
+  decreaseCommonSource(source)
+  decreaseCounterSource(source)
+
+}
+function decreaseCommonSource(source: number) {
+  const accBreak = initSourceValue.value - source;
+
+  const step = setInterval(() => {
+    // Increasing and saving random value for each iteration
+    let accumulation = initSourceValue.value - Math.floor(Math.random() * (max.value - min.value));
+
+    // If the accumulation egual or below 0,
+    // the iteration will stop.
+    if (initSourceValue.value <= 0) {
+      initSourceValue.value = 0;
+      clearInterval(step);
+      return;
+    }
+    // Checking, and then stopping iteration and cleaning up
+    if (accumulation <= accBreak) {
+      // Adding the last value to the counter
+      initSourceValue.value = accBreak;
+      clearInterval(step);
+      return;
+    }
+    // Seting accumulation value to the initial value
+    initSourceValue.value = accumulation;
+  }, COUNTER_SPEED);
+}
+
+function decreaseCounterSource(source: number) {
+
+  // If source points less than
+  source = source <= initCounterSum.value ? source : initCounterSum.value
+
+  if (source < DEATH_VALUE) {
+    // Calculate min and max values for the last iteration,
+    // if the sum of the source is less than DEATH_VALUE
+    max.value = (source / ALL_SOURCE_POINTS) * forMax;
+    min.value = (source / ALL_SOURCE_POINTS) * forMin;
+  }
+
   const step = setInterval(() => {
     // Increasing and saving random value for each iteration
     let accumulation = initCounterValue.value + Math.floor(Math.random() * (max.value - min.value));
@@ -61,32 +122,57 @@ function counterCalc(source: number) {
     if (accumulation >= source) {
       // Adding the last value to the counter
       initCounterValue.value = source;
-      initCounterSum.value = initCounterSum.value + source;
+      initCounterSum.value = initCounterSum.value <= 0 ? 0 : initCounterSum.value - source;
 
+      const y = setTimeout(() => {
+        counterRef.value?.classList.replace('show-element', 'move-up-and-hide')
+        clearTimeout(y)
+      }, prepareToHideCounter.value)
+
+      counterRef.value?.addEventListener('transitionend', () => {
+        const hideSourceUI = setTimeout(() => {
+          // Resetting counter to initial value for prepare to the next iteration
+          initCounterValue.value = 0;
+          sourceUIRef.value?.classList.remove('show-element');
+          counterRef.value?.classList.remove('move-up-and-hide')
+          clearTimeout(hideSourceUI);
+        }, prepareToHideSource.value);
+      },
+        { once: true }
+      );
+      clearInterval(step);
+      return;
+    }
+
+    // Seting accumulation value to the initial value
+    initCounterValue.value = accumulation;
+  }, COUNTER_SPEED);
+}
+
+function collectSource(source: number) {
+
+  const step = setInterval(() => {
+    // Increasing and saving random value for each iteration
+    let accumulation = initCounterValue.value + Math.floor(Math.random() * (max.value - min.value));
+    // Checking, and then stopping, resseting iteration
+    if (accumulation >= source) {
+      // Adding the last value to the counter
+      initCounterValue.value = source;
+      initCounterSum.value = initCounterSum.value >= ALL_SOURCE_POINTS ? ALL_SOURCE_POINTS : initCounterSum.value + source;
       // Small break before continuing
-      const addPause = setTimeout(() => {
-        counterRef.value?.classList.replace('move-to-show', 'move-to-hide');
-        commonSourceCalc(source);
-      }, setToPauseCounter.value);
-
+      addPauseFunc(source, counterRef.value);
       // Hiding and resetting the counter
-      const removePause = setTimeout(() => {
-        counterRef.value?.classList.remove('move-to-hide');
-        increaseProgress(source);
-      }, prepareToHideCounter.value);
-
+      removePauseFunc(source, counterRef.value, progressRef.value);
       // Hiding and cleanig timeouts
       counterRef.value?.addEventListener('transitionend', () => {
-          const hideSourceUI = setTimeout(() => {
-            //Resetting counter to initial value for prepare to the next iteration
-            initCounterValue.value = 0;
-            sourceUIRef.value?.classList.remove('source-UI__show');
-            // Clear all timeouts
-            clearTimeout(addPause);
-            clearTimeout(removePause);
-            clearTimeout(hideSourceUI);
-          }, prepareToHideSource.value);
-        },
+        const hideSourceUI = setTimeout(() => {
+          //Resetting counter to initial value for prepare to the next iteration
+          initCounterValue.value = 0;
+          sourceUIRef.value?.classList.remove('show-element');
+
+          clearTimeout(hideSourceUI);
+        }, prepareToHideSource.value);
+      },
         { once: true }
       );
       clearInterval(step);
@@ -94,10 +180,26 @@ function counterCalc(source: number) {
     }
 
     // console.log('_source');
-    counterRef.value?.classList.add('move-to-show');
+    counterRef.value?.classList.add('move-down-and-show');
     // Seting accumulation value to the initial value
     initCounterValue.value = accumulation;
   }, COUNTER_SPEED);
+}
+
+function addPauseFunc(source: number, elCounter: HTMLElement | null,) {
+  const addPause = setTimeout(() => {
+    elCounter?.classList.replace('move-down-and-show', 'move-down-and-hide');
+    commonSourceCalc(source);
+    clearTimeout(addPause);
+  }, setToPauseCounter.value);
+}
+
+function removePauseFunc(source: number, elCounter: HTMLElement | null, elProgress: HTMLElement | null) {
+  const removePause = setTimeout(() => {
+    elCounter?.classList.remove('move-down-and-hide');
+    increaseSourceProgress(source, elProgress);
+    clearTimeout(removePause);
+  }, prepareToHideCounter.value);
 }
 
 function commonSourceCalc(source: number) {
@@ -110,8 +212,6 @@ function commonSourceCalc(source: number) {
     // the iteration will stop.
     if (accumulation >= ALL_SOURCE_POINTS) {
       initSourceValue.value = ALL_SOURCE_POINTS;
-
-      // progressRef.value?.removeEventListener('transitionend', function () {}, true);
       clearInterval(step);
       return;
     }
@@ -127,7 +227,7 @@ function commonSourceCalc(source: number) {
   }, COUNTER_SPEED);
 }
 
-function increaseProgress(step: number) {
+function increaseSourceProgress(step: number, elProgress: HTMLElement | null) {
   // Calculating, how many px we will add on this step
   let calc = (PROGRESS_BAR_WIDTH * step) / ALL_SOURCE_POINTS;
   // Adding the calculated step to previous value of the progress
@@ -136,9 +236,9 @@ function increaseProgress(step: number) {
   if (progressWithStep >= PROGRESS_BAR_WIDTH) {
     PROGRESS = PROGRESS_BAR_WIDTH;
 
-    progressRef.value?.addEventListener( 'transitionend', function () {
-        this.classList.add('is-full-bar');
-      },
+    elProgress?.addEventListener('transitionend', function () {
+      this.classList.add('is-full-bar');
+    },
       { once: true }
     );
     return PROGRESS;
@@ -147,6 +247,14 @@ function increaseProgress(step: number) {
   return progressWithStep;
 }
 
+function decreaseSource(source: number) {
+  // Converting percents to points
+  const pointsToRemove = ALL_SOURCE_POINTS * (source / 100)
+  console.log(pointsToRemove);
+
+}
+
+// for UI
 function switchProgressClass(event: Event) {
   let text = (event.currentTarget as HTMLButtonElement).textContent;
 
@@ -158,17 +266,14 @@ function switchProgressClass(event: Event) {
   progressRef.value?.classList.toggle('steps');
 }
 
-const test = (num: number) => {
-  console.log('test', num);
-  return num;
-};
+
 </script>
 
 <template>
   <main>
     <section class="scene">
-      <div class="source-UI" ref="sourceUIRef" :style="{ transitionDuration: `${COUNTER_DURATION}ms` }">
-        <div class="source-UI-icon">
+      <div class="source" ref="sourceUIRef" :style="{ transitionDuration: `${COUNTER_DURATION}ms` }">
+        <div class="source-icon">
           <svg viewBox="0 0 34 32" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M0.998199 31.9837L6.43541 11.4877C6.46181 11.3882 6.60326 11.3887 6.62891 11.4885L11.8997 31.9837H0.998199Z"
@@ -181,8 +286,9 @@ const test = (num: number) => {
               fill="white" />
           </svg>
         </div>
-        <span class="source-UI-amount" ref="amountRef">{{ initSourceValue }}</span>
-        <span class="source-UI-counter" ref="counterRef" :style="{ transitionDuration: `${COUNTER_DURATION}ms` }">
+        <span class="source-amount" ref="amountRef">{{ initSourceValue }}</span>
+        <span class="source-counter" :class="[counterIncreaseAnimation ? 'source-increase' : 'source-decrease']"
+          ref="counterRef" :style="{ transitionDuration: `${COUNTER_DURATION}ms` }">
           {{ initCounterValue }}
         </span>
       </div>
@@ -195,31 +301,27 @@ const test = (num: number) => {
       <!-- <enemy-source :onClick="test"></enemy-source> -->
       <div class="input-element">
         <label for="one-source">One enemy source</label>
-        <input type="text" name="one" id="one-source" v-model.number.trim="oneEnemy" />
-        <button class="add-source-btn" @click="increaseValue(oneEnemy)">Check</button>
+        <input type="text" name="one" id="one-source" v-model.number.trim="ONE_ENEMY" />
+        <button class="add-source-btn" @click="sourceUI(ONE_ENEMY, 'increase')">Check</button>
       </div>
       <div class="input-element">
         <label for="two-source">Second enemy source</label>
-        <input type="text" name="two" id="two-source" v-model.number.trim="secondEnemy" />
-        <button class="add-source-btn" @click="increaseValue(secondEnemy)">Check</button>
+        <input type="text" name="two" id="two-source" v-model.number.trim="SECOND_ENEMY" />
+        <button class="add-source-btn" @click="sourceUI(SECOND_ENEMY, 'increase')">Check</button>
       </div>
       <div class="input-element">
         <label for="three-source">Third enemy source</label>
-        <input type="text" name="three" id="three-source" v-model.number.trim="thirdEnemy" />
-        <button class="add-source-btn" @click="increaseValue(thirdEnemy)">Check</button>
+        <input type="text" name="three" id="three-source" v-model.number.trim="THIRD_ENEMY" />
+        <button class="add-source-btn" @click="sourceUI(THIRD_ENEMY, 'increase')">Check</button>
       </div>
       <div class="input-element">
         <label for="fourth-source">Fourth enemy source</label>
-        <input type="text" name="fourth" id="fourth-source" v-model.number.trim="fourthEnemy" />
-        <button class="add-source-btn" @click="increaseValue(fourthEnemy)">Check</button>
+        <input type="text" name="fourth" id="fourth-source" v-model.number.trim="FOURTH_ENEMY" />
+        <button class="add-source-btn" @click="sourceUI(FOURTH_ENEMY, 'increase')">Check</button>
       </div>
       <div class="input-element">
         <label for="duration">Counter animation (ms)</label>
-        <input
-          type="text"
-          name="duration"
-          id="duration"
-          placeholder="Default 500ms"
+        <input type="text" name="duration" id="duration" placeholder="Default 500ms"
           v-model.number="COUNTER_DURATION" />
       </div>
       <div class="input-element">
@@ -229,11 +331,11 @@ const test = (num: number) => {
       <div class="input-element">
         <label for="remove-source">Remove source %</label>
         <input type="text" name="remove" id="remove-source" v-model.number.trim="DEATH_VALUE" />
-        <button class="remove-source-btn">Remove</button>
+        <button class="remove-source-btn" @click="sourceUI(DEATH_VALUE, 'decrease')">Remove</button>
       </div>
       <div class="input-element">
         <label for="remove-source">Bar animation smooth/steps</label>
-        <button class="source-btn" @click="switchProgressClass">Smooth</button>
+        <button class="add-source-btn" @click="switchProgressClass">Smooth</button>
       </div>
     </section>
   </main>
@@ -247,16 +349,19 @@ const test = (num: number) => {
   --add-hp: hsl(169, 67%, 43%);
   --remove-hp: hsl(0, 67%, 43%);
 }
+
 .scene {
   justify-self: end;
   width: 400px;
   aspect-ratio: 1;
   position: relative;
 }
+
 img {
   max-width: 100%;
   height: auto;
 }
+
 /* PROGRESS BAR */
 .progress-bar {
   width: 10rem;
@@ -266,6 +371,7 @@ img {
   bottom: 5rem;
   background-color: var(--bar-backdrop);
 }
+
 /* ICON cross  */
 .progress-bar::after,
 .progress-bar::before {
@@ -277,9 +383,11 @@ img {
   left: -1.1rem;
   background-color: var(--bar-color);
 }
+
 .progress-bar::before {
   transform: rotate(90deg);
 }
+
 .progress {
   position: absolute;
   inset-block: 0 0;
@@ -292,18 +400,20 @@ img {
 
 .is-full-bar {
   animation: full-bar 0.8s ease-out infinite;
-
 }
+
 .progress.steps {
   transition-timing-function: steps(4, jump-start);
 }
+
 @keyframes full-bar {
   100% {
     box-shadow: 0 0 0 0.3rem hsl(0 0% 255% / 0);
   }
 }
+
 /* SOURCE component*/
-.source-UI {
+.source {
   display: grid;
   grid-template-columns: 1.3rem auto;
   column-gap: 0.5rem;
@@ -311,18 +421,15 @@ img {
   position: absolute;
   left: 3rem;
   bottom: 7.5rem;
-  opacity: 0;
+  opacity: 0.9;
   /* duration changes dynamically */
   /* transition-duration: 0.5s; */
   transition-property: opacity;
   transition-timing-function: ease-in-out;
 }
-.source-UI__show {
-  opacity: 1;
-}
 
-.source-UI-amount,
-.source-UI-counter {
+.source-amount,
+.source-counter {
   grid-column: 2;
   grid-row: 1;
   font-family: sans-serif;
@@ -330,37 +437,65 @@ img {
   user-select: none;
 }
 
-.source-UI-counter {
+.source-counter {
   opacity: 0;
-  color: var(--add-hp);
   /* duration changes dynamically */
   /* transition-duration: 0.5s; */
   transition-property: opacity, transform;
   transition-timing-function: ease-in-out;
-  transform: translate3d(0px, -2.25rem, 0);
+
 }
+
+.source-increase {
+  color: var(--add-hp);
+  transform: translate3d(0, -2.25rem, 0);
+}
+
+.source-decrease {
+  --add-hp: var(--remove-hp);
+  color: var(--add-hp);
+  transform: translate3d(0, -1.125rem, 0);
+}
+
+.reset-counter-position {
+  display: none;
+}
+
 /* ICON cross */
-.source-UI-counter::after,
-.source-UI-counter::before {
+.source-increase::after,
+.source-increase::before,
+.source-decrease::after {
   content: '';
-  height: 0.5rem;
-  aspect-ratio: 1 / 3.3;
+  width: 0.5rem;
+  aspect-ratio: 3.3 / 1;
   position: absolute;
-  inset-block: 25%;
-  left: -0.5rem;
+  inset-block: 45%;
+  left: -0.625rem;
   background-color: var(--add-hp);
 }
-.source-UI-counter::before {
+
+.source-increase::before {
   transform: rotate(90deg);
 }
+
 /* transition counter classes */
-.move-to-show {
+.show-element {
   opacity: 1;
-  transform: translate3d(0px, -1.125rem, 0);
 }
-.move-to-hide {
-  transform: translate3d(0px, 0, 0);
+
+.move-up-and-hide {
   opacity: 0;
+  transform: translate3d(0, -2.25rem, 0);
+}
+
+.move-down-and-show {
+  opacity: 1;
+  transform: translate3d(0, -1.125rem, 0);
+}
+
+.move-down-and-hide {
+  opacity: 0;
+  transform: translate3d(0, 0, 0);
 }
 
 /* UI CONTROL PANEL */
@@ -369,38 +504,41 @@ img {
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem 1rem;
 }
+
 .input-element {
   /* width: min-content; */
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
+
 .input-element label {
   width: max-content;
   font-size: 0.9rem;
 }
+
 .input-element input {
   padding: 0.3rem 0.1rem;
   width: 100%;
   font-size: 1.1rem;
 }
+
 .input-element button {
   margin-block-start: 0.3rem;
   padding: 0.4rem 1rem;
   font-size: 1.1rem;
   font-weight: bold;
 }
+
 .input-element:last-child button {
   margin-block-start: 0;
 }
-.add-source {
-  /* color: var(--ui-element); */
-  background-color: var(--bar-backdrop);
-}
+
 .add-source-btn {
   color: var(--bar-backdrop);
   background-color: var(--add-hp);
 }
+
 .remove-source-btn {
   color: var(--ui-element);
   background-color: var(--remove-hp);
