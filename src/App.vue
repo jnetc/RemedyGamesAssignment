@@ -126,10 +126,9 @@ function decreaseCounterSource(source: number) {
       initCounterSum.value = initCounterSum.value <= 0 ? 0 : initCounterSum.value - source;
       // Showing counter after starting decrease total source
       firstStage(counterRef.value)
-      // Hiding counter
-      secondStage(source, progressRef.value)
       // Hiding the source and resetting after the counter hidded
       counterRef.value?.addEventListener('transitionend', function () {
+        secondStage(source, progressRef.value)
         resetAndHide(initCounterValue, sourceUIRef.value, this)
       },
         { once: true }
@@ -137,7 +136,6 @@ function decreaseCounterSource(source: number) {
       clearInterval(interval);
       return;
     }
-
     // Seting accumulation value to the initial value
     initCounterValue.value = accumulation;
   }, COUNTER_SPEED);
@@ -156,10 +154,9 @@ function collectSource(source: number) {
       initCounterSum.value = initCounterSum.value >= ALL_SOURCE_POINTS ? ALL_SOURCE_POINTS : initCounterSum.value + source;
       // Small break before continuing
       firstStage(counterRef.value, source);
-      // Hiding counter
-      secondStage(source, progressRef.value, counterRef.value);
       // Hiding the source and resetting after the counter hidded
       counterRef.value?.addEventListener('transitionend', function () {
+        secondStage(source, progressRef.value, counterRef.value);
         resetAndHide(initCounterValue, sourceUIRef.value, this)
       },
         { once: true }
