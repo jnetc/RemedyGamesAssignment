@@ -12,7 +12,7 @@ const initSourceValue = ref(0);
 const initCounterValue = ref(0);
 const initCounterSum = ref(0);
 
-// HTML elements
+// HTML Elements
 const sourceUIRef = ref<HTMLElement | null>(null);
 const counterRef = ref<HTMLElement | null>(null);
 const amountRef = ref<HTMLElement | null>(null);
@@ -31,7 +31,7 @@ const min = ref(0);
 const forMax = 300;
 const forMin = 100;
 
-// Timeout delays
+// Timeout dalays
 const setToPauseCounter = computed(() => COUNTER_DURATION.value); // 500 ms
 const prepareToHideCounter = computed(() => COUNTER_DURATION.value * 2); //  500ms + 500ms
 const prepareToHideSource = computed(() => COUNTER_DURATION.value * 3);
@@ -52,7 +52,7 @@ function sourceUI(source: number, calculation: 'increase' | 'decrease') {
   counterRef.value?.classList.add('reset-counter-position')
 
   // Calling the counter when source class will be visible
-  sourceUIRef.value?.addEventListener('transitionend', function (event: TransitionEvent) {
+  sourceUIRef.value?.addEventListener('transitionend', function () {
     counterRef.value?.classList.remove('reset-counter-position')
 
     if (calculation === 'decrease') {
@@ -67,20 +67,22 @@ function sourceUI(source: number, calculation: 'increase' | 'decrease') {
   );
 }
 function lostSource(source: number) {
+  showCounter(counterRef.value)
+  decreaseTotalSource(source)
+  decreaseCounterSource(source)
+}
 
+function showCounter(elCounter: HTMLElement | null) {
   const showCounter = setTimeout(() => {
-    counterRef.value?.classList.add('show-element')
+    elCounter?.classList.add('show-element')
     clearTimeout(showCounter)
   }, 0)
-
-  decreaseCommonSource(source)
-  decreaseCounterSource(source)
-
 }
-function decreaseCommonSource(source: number) {
+
+function decreaseTotalSource(source: number) {
   const accBreak = initSourceValue.value - source;
 
-  const step = setInterval(() => {
+  const interval = setInterval(() => {
     // Increasing and saving random value for each iteration
     let accumulation = initSourceValue.value - Math.floor(Math.random() * (max.value - min.value));
 
@@ -88,14 +90,14 @@ function decreaseCommonSource(source: number) {
     // the iteration will stop.
     if (initSourceValue.value <= 0) {
       initSourceValue.value = 0;
-      clearInterval(step);
+      clearInterval(interval);
       return;
     }
-    // Checking, and then stopping iteration and cleaning up
+    // If the accumulation less or equal total source
     if (accumulation <= accBreak) {
       // Adding the last value to the counter
       initSourceValue.value = accBreak;
-      clearInterval(step);
+      clearInterval(interval);
       return;
     }
     // Seting accumulation value to the initial value
@@ -104,7 +106,6 @@ function decreaseCommonSource(source: number) {
 }
 
 function decreaseCounterSource(source: number) {
-
   // If source points less than
   source = source <= initCounterSum.value ? source : initCounterSum.value
 
@@ -115,7 +116,7 @@ function decreaseCounterSource(source: number) {
     min.value = (source / ALL_SOURCE_POINTS) * forMin;
   }
 
-  const step = setInterval(() => {
+  const interval = setInterval(() => {
     // Increasing and saving random value for each iteration
     let accumulation = initCounterValue.value + Math.floor(Math.random() * (max.value - min.value));
     // Checking, and then stopping, resseting iteration
@@ -123,24 +124,17 @@ function decreaseCounterSource(source: number) {
       // Adding the last value to the counter
       initCounterValue.value = source;
       initCounterSum.value = initCounterSum.value <= 0 ? 0 : initCounterSum.value - source;
-
-      const y = setTimeout(() => {
-        counterRef.value?.classList.replace('show-element', 'move-up-and-hide')
-        clearTimeout(y)
-      }, prepareToHideCounter.value)
-
-      counterRef.value?.addEventListener('transitionend', () => {
-        const hideSourceUI = setTimeout(() => {
-          // Resetting counter to initial value for prepare to the next iteration
-          initCounterValue.value = 0;
-          sourceUIRef.value?.classList.remove('show-element');
-          counterRef.value?.classList.remove('move-up-and-hide')
-          clearTimeout(hideSourceUI);
-        }, prepareToHideSource.value);
+      // Showing counter after starting decrease total source
+      firstStage(counterRef.value)
+      // Hiding counter
+      secondStage(source, progressRef.value)
+      // Hiding the source and resetting after the counter hidded
+      counterRef.value?.addEventListener('transitionend', function () {
+        resetAndHide(initCounterValue, sourceUIRef.value, this)
       },
         { once: true }
       );
-      clearInterval(step);
+      clearInterval(interval);
       return;
     }
 
@@ -149,9 +143,10 @@ function decreaseCounterSource(source: number) {
   }, COUNTER_SPEED);
 }
 
+// INCREASE SOURCE
 function collectSource(source: number) {
 
-  const step = setInterval(() => {
+  const interval = setInterval(() => {
     // Increasing and saving random value for each iteration
     let accumulation = initCounterValue.value + Math.floor(Math.random() * (max.value - min.value));
     // Checking, and then stopping, resseting iteration
@@ -160,66 +155,71 @@ function collectSource(source: number) {
       initCounterValue.value = source;
       initCounterSum.value = initCounterSum.value >= ALL_SOURCE_POINTS ? ALL_SOURCE_POINTS : initCounterSum.value + source;
       // Small break before continuing
-      addPauseFunc(source, counterRef.value);
-      // Hiding and resetting the counter
-      removePauseFunc(source, counterRef.value, progressRef.value);
-      // Hiding and cleanig timeouts
-      counterRef.value?.addEventListener('transitionend', () => {
-        const hideSourceUI = setTimeout(() => {
-          //Resetting counter to initial value for prepare to the next iteration
-          initCounterValue.value = 0;
-          sourceUIRef.value?.classList.remove('show-element');
-
-          clearTimeout(hideSourceUI);
-        }, prepareToHideSource.value);
+      firstStage(counterRef.value, source);
+      // Hiding counter
+      secondStage(source, progressRef.value, counterRef.value);
+      // Hiding the source and resetting after the counter hidded
+      counterRef.value?.addEventListener('transitionend', function () {
+        resetAndHide(initCounterValue, sourceUIRef.value, this)
       },
         { once: true }
       );
-      clearInterval(step);
+      clearInterval(interval);
       return;
     }
 
-    // console.log('_source');
     counterRef.value?.classList.add('move-down-and-show');
     // Seting accumulation value to the initial value
     initCounterValue.value = accumulation;
   }, COUNTER_SPEED);
 }
 
-function addPauseFunc(source: number, elCounter: HTMLElement | null,) {
-  const addPause = setTimeout(() => {
+// Swap classes to hide counter
+// and calling function to increase total source points
+function firstStage(elCounter: HTMLElement | null, source?: number) {
+  const timeout = setTimeout(() => {
+    // if decreasing
+    if (!source) {
+      elCounter?.classList.replace('show-element', 'move-up-and-hide')
+      return
+    }
+    // Increase
     elCounter?.classList.replace('move-down-and-show', 'move-down-and-hide');
-    commonSourceCalc(source);
-    clearTimeout(addPause);
+    totalSourceCalc(source);
+    clearTimeout(timeout);
   }, setToPauseCounter.value);
 }
 
-function removePauseFunc(source: number, elCounter: HTMLElement | null, elProgress: HTMLElement | null) {
-  const removePause = setTimeout(() => {
-    elCounter?.classList.remove('move-down-and-hide');
-    increaseSourceProgress(source, elProgress);
-    clearTimeout(removePause);
+// 1) If increase points, removing the counter class
+// 2) Calling function to increase or decrease progress bar width
+function secondStage(source: number, elProgress: HTMLElement | null, elCounter?: HTMLElement | null) {
+  const timeout = setTimeout(() => {
+    // only for increase
+    elCounter ? elCounter?.classList.remove('move-down-and-hide') : null;
+    // work in increase | decrease
+    sourceProgress(source, elProgress);
+    clearTimeout(timeout);
   }, prepareToHideCounter.value);
 }
 
-function commonSourceCalc(source: number) {
+function totalSourceCalc(source: number) {
   const accBreak = initSourceValue.value + source;
 
-  const step = setInterval(() => {
+  const interval = setInterval(() => {
     // Increasing and saving random value for each iteration
     let accumulation = initSourceValue.value + Math.floor(Math.random() * (max.value - min.value));
     // If the accumulation exceeds the max. amount of source points,
     // the iteration will stop.
     if (accumulation >= ALL_SOURCE_POINTS) {
       initSourceValue.value = ALL_SOURCE_POINTS;
-      clearInterval(step);
+      clearInterval(interval);
       return;
     }
-    // Checking, and then stopping iteration and cleaning up
+    // If the accumulation more or equal total source
     if (accumulation >= accBreak) {
       // Adding the last value to the counter
       initSourceValue.value = accBreak;
-      clearInterval(step);
+      clearInterval(interval);
       return;
     }
     // Seting accumulation value to the initial value
@@ -227,34 +227,55 @@ function commonSourceCalc(source: number) {
   }, COUNTER_SPEED);
 }
 
-function increaseSourceProgress(step: number, elProgress: HTMLElement | null) {
-  // Calculating, how many px we will add on this step
-  let calc = (PROGRESS_BAR_WIDTH * step) / ALL_SOURCE_POINTS;
-  // Adding the calculated step to previous value of the progress
-  const progressWithStep = (PROGRESS += calc);
-  // If progressWithStep exceed the entire progress bar
-  if (progressWithStep >= PROGRESS_BAR_WIDTH) {
-    PROGRESS = PROGRESS_BAR_WIDTH;
+function sourceProgress(points: number, elProgress: HTMLElement | null) {
+  // Calculating, how many px we will add on progress bar
+  let calc = (PROGRESS_BAR_WIDTH * points) / ALL_SOURCE_POINTS;
+  let step
 
-    elProgress?.addEventListener('transitionend', function () {
-      this.classList.add('is-full-bar');
-    },
-      { once: true }
-    );
-    return PROGRESS;
+  if (!counterIncreaseAnimation.value) {
+    // Subtracting the calculated step to previous value of the progress
+    step = (PROGRESS -= calc);
+    // If step less the entire progress bar
+    if (step <= PROGRESS_BAR_WIDTH) {
+
+      elProgress?.addEventListener('transitionend', function () {
+        this.classList.remove('is-full-bar');
+      },
+        { once: true }
+      );
+    }
   }
 
-  return progressWithStep;
+  if (counterIncreaseAnimation.value) {
+    // Adding the calculated step to previous value of the progress
+    step = (PROGRESS += calc);
+    // If step exceed the entire progress bar
+    if (step >= PROGRESS_BAR_WIDTH) {
+      PROGRESS = PROGRESS_BAR_WIDTH;
+
+      elProgress?.addEventListener('transitionend', function () {
+        this.classList.add('is-full-bar');
+      },
+        { once: true }
+      );
+      return PROGRESS;
+    }
+  }
+  return step;
 }
 
-function decreaseSource(source: number) {
-  // Converting percents to points
-  const pointsToRemove = ALL_SOURCE_POINTS * (source / 100)
-  console.log(pointsToRemove);
-
+function resetAndHide(counter: Ref<number>, elSource: HTMLElement | null, elCounter?: HTMLElement | null) {
+  const timeout = setTimeout(() => {
+    // Resetting counter to initial value for prepare to the next iteration
+    counter.value = 0;
+    elSource?.classList.remove('show-element');
+    // // only for increase
+    elCounter ? elCounter?.classList.remove('move-up-and-hide') : null
+    clearTimeout(timeout);
+  }, prepareToHideSource.value);
 }
 
-// for UI
+// Switching between transition
 function switchProgressClass(event: Event) {
   let text = (event.currentTarget as HTMLButtonElement).textContent;
 
@@ -265,8 +286,6 @@ function switchProgressClass(event: Event) {
   }
   progressRef.value?.classList.toggle('steps');
 }
-
-
 </script>
 
 <template>
@@ -298,7 +317,6 @@ function switchProgressClass(event: Event) {
       <img src="/bg.webp" alt="bg" />
     </section>
     <section class="ui-elements">
-      <!-- <enemy-source :onClick="test"></enemy-source> -->
       <div class="input-element">
         <label for="one-source">One enemy source</label>
         <input type="text" name="one" id="one-source" v-model.number.trim="ONE_ENEMY" />
@@ -421,7 +439,7 @@ img {
   position: absolute;
   left: 3rem;
   bottom: 7.5rem;
-  opacity: 0.9;
+  opacity: 0;
   /* duration changes dynamically */
   /* transition-duration: 0.5s; */
   transition-property: opacity;
