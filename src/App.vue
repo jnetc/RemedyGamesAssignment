@@ -1,21 +1,19 @@
 <script setup lang="ts">
 import { ref, Ref, computed } from 'vue';
-import EnemySource from './components/EnemySource.vue';
 
-const PROGRESS_BAR_WIDTH = 160; // Units '160px' = '10rem'
+const PROGRESS_BAR_WIDTH = 160; // '160px' = '10rem'
 const ALL_SOURCE_POINTS = 2000; // All points includes in progress bar
-let COUNTER_SPEED = 20; // min 15 ->
+let COUNTER_SPEED = 20;
 let COUNTER_DURATION = ref(500); // 500ms
 let PROGRESS = 0;
 let PROGRESS_PREVIEW = 0;
 
 // Initial enemy values
-let ONE_ENEMY = 2000;
-let SECOND_ENEMY = 530;
-let THIRD_ENEMY = 250;
-let FOURTH_ENEMY = 50;
+let ONE_ENEMY = 500;
+let SECOND_ENEMY = 400;
+let THIRD_ENEMY = 333;
+let FOURTH_ENEMY = 55;
 let DEATH_PERCENT = 10; // 10% of 100
-let DEATH_PERCENT_TO_PX = 0
 
 const initSourceValue = ref(0);
 const initCounterValue = ref(0);
@@ -28,7 +26,6 @@ const amountRef = ref<HTMLElement | null>(null);
 const progressRef = ref<HTMLElement | null>(null);
 const progressWrapperRef = ref<HTMLElement | null>(null);
 const progressBackLayerRef = ref<HTMLElement | null>(null); // EXTRA: backlayer
-const progressFrontLayerRef = ref<HTMLElement | null>(null); // EXTRA: frontlayer
 
 
 // Randomize resouce value
@@ -39,16 +36,20 @@ const forMin = 100;
 
 // Timeout dalays
 const setToPauseCounter = computed(() => COUNTER_DURATION.value); // 500 ms
-const prepareToHideCounter = computed(() => COUNTER_DURATION.value * 2); //  500ms + 500ms
-const prepareToHideSource = computed(() => COUNTER_DURATION.value * 3);
+const prepareToHideCounter = computed(() => COUNTER_DURATION.value * 2); // 500ms + 500ms
+const prepareToHideSource = computed(() => COUNTER_DURATION.value * 3); // 500ms + 500ms + 500ms
 
 const counterIncreaseAnimation = ref(false)
+// Disable buttons to play the animation and prevent spam events
+const disableButton = ref(false)
 
 function sourceHandler(source: number, calculation: 'increase' | 'decrease') {
+
+  disableButton.value = true
+
   // Converting percents to points
   if (calculation === 'decrease') {
     source = ALL_SOURCE_POINTS * (source / 100)
-    DEATH_PERCENT_TO_PX = (PROGRESS_BAR_WIDTH * DEATH_PERCENT) / 100
   }
 
   // Calculate min and max values for each iteration in current source
@@ -56,6 +57,7 @@ function sourceHandler(source: number, calculation: 'increase' | 'decrease') {
   min.value = (source / ALL_SOURCE_POINTS) * forMin;
 
   sourceRef.value?.classList.add('show-element');
+  // Adding class to resetting counter position
   counterRef.value?.classList.add('reset-counter-position')
 
   // EXTRA: calculate preview width and
@@ -64,15 +66,21 @@ function sourceHandler(source: number, calculation: 'increase' | 'decrease') {
   sourceRef.value?.addEventListener('transitionend', function () {
     counterRef.value?.classList.remove('reset-counter-position')
 
-    console.log(PROGRESS_PREVIEW, memorize);
-
     if (calculation === 'decrease') {
       // Switching animation direction
       counterIncreaseAnimation.value = false
+      // If the source has '0', breaking the counter animation / transition
+      // Only quickly show the source element
+      if (PROGRESS_PREVIEW === 0) {
+        this.classList.remove('show-element');
+        disableButton.value = false
+        return
+      }
       lostSource(source)
+
       // EXTRA: Show preview progress before main progress
       // EXTRA: add class to 'predict' how many source will be lost
-      if (PROGRESS_PREVIEW < 0) {
+      if (PROGRESS_PREVIEW < memorize) {
         PROGRESS_PREVIEW = 0
         return
       }
@@ -254,6 +262,9 @@ function totalSourceCalc(source: number) {
 }
 
 function sourceProgress(points: number, elProgress: HTMLElement | null) {
+
+  disableButton.value = false
+
   // Calculating, how many px we will add on progress bar
   let calc = (PROGRESS_BAR_WIDTH * points) / ALL_SOURCE_POINTS;
   let step = 0
@@ -265,8 +276,7 @@ function sourceProgress(points: number, elProgress: HTMLElement | null) {
     if (step <= 0) PROGRESS = 0
 
     if (step <= PROGRESS_BAR_WIDTH) {
-      // step = 0
-      // EXTRA: Removing the backlayer after the width transition ends
+      // EXTRA: Removing a class after the width has decreased
       elProgress?.addEventListener('transitionend', () => {
         progressWrapperRef.value?.classList.remove('is-full-bar');
 
@@ -281,13 +291,12 @@ function sourceProgress(points: number, elProgress: HTMLElement | null) {
     // If step exceed the entire progress bar
     if (step >= PROGRESS_BAR_WIDTH) {
       PROGRESS = PROGRESS_BAR_WIDTH;
-      // step = 0
 
       // EXTRA: Indicate that the entire progress bar has been filled
       // after the width transition ends
       elProgress?.addEventListener('transitionend', function () {
-        progressWrapperRef.value?.classList.add('is-full-bar');
         progressBackLayerRef.value?.classList.remove('show-element')
+        progressWrapperRef.value?.classList.add('is-full-bar');
       }, { once: true })
       return PROGRESS;
     }
@@ -305,7 +314,7 @@ function resetAndHide(counter: Ref<number>, elSource: HTMLElement | null, elCoun
   }, prepareToHideSource.value);
 }
 
-// Switching between transition
+// UI element: Switching between transition
 function switchProgressClass(event: Event) {
   let text = (event.currentTarget as HTMLButtonElement).textContent;
 
@@ -345,9 +354,6 @@ function switchProgressClass(event: Event) {
         <div class="progress-wrapper" ref="progressWrapperRef">
           <div class="progress " ref="progressRef"
             :style="{ width: `${PROGRESS_BAR_WIDTH}px`, left: `-${PROGRESS_BAR_WIDTH}px`, transform: `translateX(${PROGRESS}px)` }">
-            <!-- <div class="progress-front-layer " ref="progressFrontLayerRef"
-              :style="{ width: `${DEATH_PERCENT_TO_PX}px` }">
-            </div> -->
           </div>
           <div class="progress-back-layer" ref="progressBackLayerRef" :style="{ width: `${PROGRESS_PREVIEW}px` }"></div>
         </div>
@@ -358,22 +364,26 @@ function switchProgressClass(event: Event) {
       <div class="input-element">
         <label for="one-source">One enemy source</label>
         <input type="text" name="one" id="one-source" v-model.number.trim="ONE_ENEMY" />
-        <button class="add-source-btn" @click="sourceHandler(ONE_ENEMY, 'increase')">Check</button>
+        <button class="add-source-btn" :disabled="disableButton"
+          @click="sourceHandler(ONE_ENEMY, 'increase')">Add</button>
       </div>
       <div class="input-element">
         <label for="two-source">Second enemy source</label>
         <input type="text" name="two" id="two-source" v-model.number.trim="SECOND_ENEMY" />
-        <button class="add-source-btn" @click="sourceHandler(SECOND_ENEMY, 'increase')">Check</button>
+        <button class="add-source-btn" :disabled="disableButton"
+          @click="sourceHandler(SECOND_ENEMY, 'increase')">Add</button>
       </div>
       <div class="input-element">
         <label for="three-source">Third enemy source</label>
         <input type="text" name="three" id="three-source" v-model.number.trim="THIRD_ENEMY" />
-        <button class="add-source-btn" @click="sourceHandler(THIRD_ENEMY, 'increase')">Check</button>
+        <button class="add-source-btn" :disabled="disableButton"
+          @click="sourceHandler(THIRD_ENEMY, 'increase')">Add</button>
       </div>
       <div class="input-element">
         <label for="fourth-source">Fourth enemy source</label>
         <input type="text" name="fourth" id="fourth-source" v-model.number.trim="FOURTH_ENEMY" />
-        <button class="add-source-btn" @click="sourceHandler(FOURTH_ENEMY, 'increase')">Check</button>
+        <button class="add-source-btn" :disabled="disableButton"
+          @click="sourceHandler(FOURTH_ENEMY, 'increase')">Add</button>
       </div>
       <div class="input-element">
         <label for="duration">Counter animation (ms)</label>
@@ -387,7 +397,8 @@ function switchProgressClass(event: Event) {
       <div class="input-element">
         <label for="remove-source">Remove source %</label>
         <input type="text" name="remove" id="remove-source" v-model.number.trim="DEATH_PERCENT" />
-        <button class="remove-source-btn" @click="sourceHandler(DEATH_PERCENT, 'decrease')">Remove</button>
+        <button class="remove-source-btn" :disabled="disableButton"
+          @click="sourceHandler(DEATH_PERCENT, 'decrease')">Remove</button>
       </div>
       <div class="input-element">
         <label>Progress bar animation</label>
@@ -411,11 +422,6 @@ function switchProgressClass(event: Event) {
   width: 400px;
   aspect-ratio: 1;
   position: relative;
-}
-
-img {
-  max-width: 100%;
-  height: auto;
 }
 
 /* PROGRESS BAR */
@@ -448,7 +454,7 @@ img {
   overflow: hidden;
   position: absolute;
   inset: 0;
-  box-shadow: 0 0 0 0 hsl(0 0% 100% / 1);
+  box-shadow: 0 0 0 0 hsl(0 0% 100% / .7);
 }
 
 .progress {
@@ -470,39 +476,6 @@ img {
   transition: opacity .3s ease-in-out;
   z-index: 1;
 }
-
-/* .progress-front-layer { */
-/* position: absolute; */
-/* inset-block: 0 0; */
-/* right: 0; */
-/* opacity: 1; */
-/* background-color: hsl(0 0% 255% / .2); */
-/* background-color: red; */
-/* transition: opacity .3s ease-in-out; */
-/* z-index: 10; */
-/* } */
-
-/* .indicator::after {
-  content: '';
-  width: 1px;
-  position: absolute;
-  inset-block: 0;
-  right: -1px;
-  opacity: 0;
-  background-color: hsl(0 0% 255% / 1);
-  box-shadow: 0 0 0 0px hsl(0 0% 255% / 1);
-  animation: indicate 1s ease-out infinite;
-} */
-
-/* .indicator::after {
-  opacity: 1;
-  transition: opacity .5s ease-in-out;
-} */
-
-/* .indicate.indicator::after {
-  opacity: 1;
-  transition: opacity .5s ease-in-out;
-} */
 
 @keyframes indicate {
   100% {
@@ -574,21 +547,24 @@ img {
   display: none;
 }
 
-/* ICON cross */
+/* ICON plus / minus  */
 .source-increase::after,
-.source-increase::before,
 .source-decrease::after {
-  content: '';
-  width: 0.5rem;
-  aspect-ratio: 3.3 / 1;
   position: absolute;
-  inset-block: 45%;
-  left: -0.625rem;
-  background-color: var(--add-hp);
+  font-size: 1.2em;
+  font-weight: bold;
 }
 
-.source-increase::before {
-  transform: rotate(90deg);
+.source-increase::after {
+  content: '+';
+  top: -0.125rem;
+  left: -0.8rem;
+}
+
+.source-decrease::after {
+  content: '-';
+  top: -0.225rem;
+  left: -0.6rem;
 }
 
 /* transition counter classes */
@@ -619,7 +595,6 @@ img {
 }
 
 .input-element {
-  /* width: min-content; */
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
