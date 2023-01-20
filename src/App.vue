@@ -7,6 +7,7 @@ let COUNTER_SPEED = 20;
 let COUNTER_DURATION = ref(500); // 500ms
 let PROGRESS = 0;
 let PROGRESS_PREVIEW = 0;
+let RANDOM_RANGE = 15
 
 // Initial enemy values
 let ONE_ENEMY = 500;
@@ -23,7 +24,7 @@ const initCounterSum = ref(0);
 const sourceRef = ref<HTMLElement | null>(null);
 const counterRef = ref<HTMLElement | null>(null);
 const amountRef = ref<HTMLElement | null>(null);
-const progressRef = ref<HTMLElement | null>(null);
+const progressBarRef = ref<HTMLElement | null>(null);
 const progressWrapperRef = ref<HTMLElement | null>(null);
 const progressBackLayerRef = ref<HTMLElement | null>(null); // EXTRA: backlayer
 
@@ -40,12 +41,20 @@ const prepareToHideCounter = computed(() => COUNTER_DURATION.value * 2); // 500m
 const prepareToHideSource = computed(() => COUNTER_DURATION.value * 3); // 500ms + 500ms + 500ms
 
 const counterIncreaseAnimation = ref(false)
+const randomizerSwitcher = ref(false)
 // Disable buttons to play the animation and prevent spam events
 const disableButton = ref(false)
 
 function sourceHandler(source: number, calculation: 'increase' | 'decrease') {
 
   disableButton.value = true
+
+  if (calculation === 'increase') {
+    // Randomizing range between positive and negative RANDOM_RANGE value
+    const randomizeSource = Math.ceil(Math.random() * RANDOM_RANGE) * (Math.round(Math.random()) ? 1 : -1)
+    // Setting randomized source value
+    source = randomizerSwitcher.value ? source + randomizeSource : source
+  }
 
   // Converting percents to points
   if (calculation === 'decrease') {
@@ -165,7 +174,7 @@ function decreaseCounterSource(source: number) {
       firstStage(counterRef.value)
       // Hiding the source and resetting after the counter hidded
       counterRef.value?.addEventListener('transitionend', function () {
-        secondStage(source, progressRef.value)
+        secondStage(source, progressBarRef.value)
         resetAndHide(initCounterValue, sourceRef.value, this)
       },
         { once: true }
@@ -193,7 +202,7 @@ function collectSource(source: number) {
       firstStage(counterRef.value, source);
       // Hiding the source and resetting after the counter hidded
       counterRef.value?.addEventListener('transitionend', function () {
-        secondStage(source, progressRef.value, counterRef.value);
+        secondStage(source, progressBarRef.value, counterRef.value);
         resetAndHide(initCounterValue, sourceRef.value, this)
       },
         { once: true }
@@ -323,7 +332,10 @@ function switchProgressClass(event: Event) {
   } else {
     (event.currentTarget as HTMLButtonElement).textContent = 'Smooth';
   }
-  progressRef.value?.classList.toggle('steps');
+  progressBarRef.value?.classList.toggle('steps');
+}
+function randomizerHandler() {
+  randomizerSwitcher.value = !randomizerSwitcher.value
 }
 </script>
 
@@ -331,7 +343,7 @@ function switchProgressClass(event: Event) {
   <main>
     <section class="scene">
       <div class="source" ref="sourceRef" :style="{ transitionDuration: `${COUNTER_DURATION}ms` }">
-        <div class="source-icon">
+        <div class="source__icon">
           <svg viewBox="0 0 34 32" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M0.998199 31.9837L6.43541 11.4877C6.46181 11.3882 6.60326 11.3887 6.62891 11.4885L11.8997 31.9837H0.998199Z"
@@ -344,65 +356,75 @@ function switchProgressClass(event: Event) {
               fill="white" />
           </svg>
         </div>
-        <span class="source-amount" ref="amountRef">{{ initSourceValue }}</span>
-        <span class="source-counter" :class="[counterIncreaseAnimation ? 'source-increase' : 'source-decrease']"
+        <span class="source__amount" ref="amountRef">{{ initSourceValue }}</span>
+        <span class="source__counter" :class="[counterIncreaseAnimation ? 'source-increase' : 'source-decrease']"
           ref="counterRef" :style="{ transitionDuration: `${COUNTER_DURATION}ms` }">
           {{ initCounterValue }}
         </span>
       </div>
-      <div class="progress-bar">
-        <div class="progress-wrapper" ref="progressWrapperRef">
-          <div class="progress " ref="progressRef"
+      <div class="progress">
+        <div class="progress__wrapper" ref="progressWrapperRef">
+          <div class="progress__bar" ref="progressBarRef"
             :style="{ width: `${PROGRESS_BAR_WIDTH}px`, left: `-${PROGRESS_BAR_WIDTH}px`, transform: `translateX(${PROGRESS}px)` }">
           </div>
-          <div class="progress-back-layer" ref="progressBackLayerRef" :style="{ width: `${PROGRESS_PREVIEW}px` }"></div>
+          <div class="progress__back-layer" ref="progressBackLayerRef" :style="{ width: `${PROGRESS_PREVIEW}px` }">
+          </div>
         </div>
       </div>
       <img src="/bg.webp" alt="bg" />
     </section>
-    <section class="ui-elements">
-      <div class="input-element">
+    <section class="elements-ui">
+      <div class="element__input">
         <label for="one-source">One enemy source</label>
         <input type="text" name="one" id="one-source" v-model.number.trim="ONE_ENEMY" />
         <button class="add-source-btn" :disabled="disableButton"
           @click="sourceHandler(ONE_ENEMY, 'increase')">Add</button>
       </div>
-      <div class="input-element">
+      <div class="element__input">
         <label for="two-source">Second enemy source</label>
         <input type="text" name="two" id="two-source" v-model.number.trim="SECOND_ENEMY" />
         <button class="add-source-btn" :disabled="disableButton"
           @click="sourceHandler(SECOND_ENEMY, 'increase')">Add</button>
       </div>
-      <div class="input-element">
+      <div class="element__input">
         <label for="three-source">Third enemy source</label>
         <input type="text" name="three" id="three-source" v-model.number.trim="THIRD_ENEMY" />
         <button class="add-source-btn" :disabled="disableButton"
           @click="sourceHandler(THIRD_ENEMY, 'increase')">Add</button>
       </div>
-      <div class="input-element">
+      <div class="element__input">
         <label for="fourth-source">Fourth enemy source</label>
         <input type="text" name="fourth" id="fourth-source" v-model.number.trim="FOURTH_ENEMY" />
         <button class="add-source-btn" :disabled="disableButton"
           @click="sourceHandler(FOURTH_ENEMY, 'increase')">Add</button>
       </div>
-      <div class="input-element">
-        <label for="duration">Counter animation (ms)</label>
-        <input type="text" name="duration" id="duration" placeholder="Default 500ms"
-          v-model.number="COUNTER_DURATION" />
-      </div>
-      <div class="input-element">
-        <label for="speed">Counter speed</label>
-        <input type="text" name="speed" id="speed" placeholder="Default 20" v-model.number="COUNTER_SPEED" />
-      </div>
-      <div class="input-element">
+      <div class="element__input">
         <label for="remove-source">Remove source %</label>
         <input type="text" name="remove" id="remove-source" v-model.number.trim="DEATH_PERCENT" />
         <button class="remove-source-btn" :disabled="disableButton"
           @click="sourceHandler(DEATH_PERCENT, 'decrease')">Remove</button>
       </div>
-      <div class="input-element">
+      <div class="element__input">
+        <label for="random-source">Randomize source %</label>
+        <input type="text" name="random" id="random-source" v-model.number.trim="RANDOM_RANGE" />
+        <button :class="[randomizerSwitcher ? 'add-source-btn' : 'remove-source-btn']" :disabled="disableButton"
+          @click="randomizerHandler">{{
+            randomizerSwitcher? 'On'
+              : 'Off'
+          }}</button>
+      </div>
+      <div class="element__input">
         <label>Progress bar animation</label>
         <button class="add-source-btn" @click="switchProgressClass">Smooth</button>
+      </div>
+      <div class="element__input">
+        <label for="duration">Counter animation (ms)</label>
+        <input type="text" name="duration" id="duration" placeholder="Default 500ms"
+          v-model.number="COUNTER_DURATION" />
+      </div>
+      <div class="element__input">
+        <label for="speed">Counter speed</label>
+        <input type="text" name="speed" id="speed" placeholder="Default 20" v-model.number="COUNTER_SPEED" />
       </div>
     </section>
   </main>
@@ -425,7 +447,7 @@ function switchProgressClass(event: Event) {
 }
 
 /* PROGRESS BAR */
-.progress-bar {
+.progress {
   width: 10rem;
   height: 1rem;
   position: absolute;
@@ -435,8 +457,8 @@ function switchProgressClass(event: Event) {
 }
 
 /* ICON cross  */
-.progress-bar::after,
-.progress-bar::before {
+.progress::after,
+.progress::before {
   content: '';
   height: inherit;
   aspect-ratio: 1 / 3.1;
@@ -446,18 +468,18 @@ function switchProgressClass(event: Event) {
   background-color: var(--bar-color);
 }
 
-.progress-bar::before {
+.progress::before {
   transform: rotate(90deg);
 }
 
-.progress-wrapper {
+.progress__wrapper {
   overflow: hidden;
   position: absolute;
   inset: 0;
   box-shadow: 0 0 0 0 hsl(0 0% 100% / .7);
 }
 
-.progress {
+.progress__bar {
   position: absolute;
   inset-block: 0 0;
   background-color: var(--bar-color);
@@ -467,7 +489,7 @@ function switchProgressClass(event: Event) {
   z-index: 5;
 }
 
-.progress-back-layer {
+.progress__back-layer {
   position: absolute;
   inset-block: 0 0;
   overflow: hidden;
@@ -488,7 +510,7 @@ function switchProgressClass(event: Event) {
 
 }
 
-.progress.steps {
+.progress__bar.steps {
   transition-timing-function: steps(4, jump-start);
 }
 
@@ -514,8 +536,8 @@ function switchProgressClass(event: Event) {
   transition-timing-function: ease-in-out;
 }
 
-.source-amount,
-.source-counter {
+.source__amount,
+.source__counter {
   grid-column: 2;
   grid-row: 1;
   font-family: sans-serif;
@@ -523,7 +545,7 @@ function switchProgressClass(event: Event) {
   user-select: none;
 }
 
-.source-counter {
+.source__counter {
   opacity: 0;
   /* duration changes dynamically */
   /* transition-duration: 0.5s; */
@@ -588,37 +610,37 @@ function switchProgressClass(event: Event) {
 }
 
 /* UI CONTROL PANEL */
-.ui-elements {
+.elements-ui {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem 1rem;
 }
 
-.input-element {
+.element__input {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
 
-.input-element label {
+.element__input label {
   width: max-content;
   font-size: 0.9rem;
 }
 
-.input-element input {
+.element__input input {
   padding: 0.3rem 0.1rem;
   width: 100%;
   font-size: 1.1rem;
 }
 
-.input-element button {
+.element__input button {
   margin-block-start: 0.3rem;
   padding: 0.4rem 1rem;
   font-size: 1.1rem;
   font-weight: bold;
 }
 
-.input-element:last-child button {
+.element__input:last-child button {
   margin-block-start: 0;
 }
 
