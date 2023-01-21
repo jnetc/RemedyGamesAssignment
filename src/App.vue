@@ -368,7 +368,7 @@ function randomizerHandler() {
           <div class="progress__bar" ref="progressBarRef"
             :style="{ width: `${PROGRESS_BAR_WIDTH}px`, left: `-${PROGRESS_BAR_WIDTH}px`, transform: `translateX(${PROGRESS}px)` }">
           </div>
-          <div class="progress__predictional" ref="progressPredictRef" :style="{ width: `${PROGRESS_PREVIEW}px` }">
+          <div class="progress__prediction" ref="progressPredictRef" :style="{ width: `${PROGRESS_PREVIEW}px` }">
           </div>
         </div>
       </div>
@@ -490,7 +490,7 @@ function randomizerHandler() {
   z-index: 5;
 }
 
-.progress__predictional {
+.progress__prediction {
   position: absolute;
   inset-block: 0 0;
   overflow: hidden;
