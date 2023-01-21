@@ -26,7 +26,7 @@ const counterRef = ref<HTMLElement | null>(null);
 const amountRef = ref<HTMLElement | null>(null);
 const progressBarRef = ref<HTMLElement | null>(null);
 const progressWrapperRef = ref<HTMLElement | null>(null);
-const progressBackLayerRef = ref<HTMLElement | null>(null); // EXTRA: backlayer
+const progressPredictRef = ref<HTMLElement | null>(null); // EXTRA: Predictional
 
 
 // Randomize resouce value
@@ -102,7 +102,7 @@ function sourceHandler(source: number, calculation: 'increase' | 'decrease') {
 
     // EXTRA: Show preview progress before main progress
     // EXTRA: add a class to 'predict' how many source will be added
-    progressBackLayerRef.value?.classList.add('show-element')
+    progressPredictRef.value?.classList.add('show-element')
     if (memorize + PROGRESS_PREVIEW >= PROGRESS_BAR_WIDTH) {
       PROGRESS_PREVIEW = PROGRESS_BAR_WIDTH
       return
@@ -304,7 +304,7 @@ function sourceProgress(points: number, elProgress: HTMLElement | null) {
       // EXTRA: Indicate that the entire progress bar has been filled
       // after the width transition ends
       elProgress?.addEventListener('transitionend', function () {
-        progressBackLayerRef.value?.classList.remove('show-element')
+        progressPredictRef.value?.classList.remove('show-element')
         progressWrapperRef.value?.classList.add('is-full-bar');
       }, { once: true })
       return PROGRESS;
@@ -323,7 +323,8 @@ function resetAndHide(counter: Ref<number>, elSource: HTMLElement | null, elCoun
   }, prepareToHideSource.value);
 }
 
-// UI element: Switching between transition
+// UI elements handlers
+// Switching between transition
 function switchProgressClass(event: Event) {
   let text = (event.currentTarget as HTMLButtonElement).textContent;
 
@@ -367,7 +368,7 @@ function randomizerHandler() {
           <div class="progress__bar" ref="progressBarRef"
             :style="{ width: `${PROGRESS_BAR_WIDTH}px`, left: `-${PROGRESS_BAR_WIDTH}px`, transform: `translateX(${PROGRESS}px)` }">
           </div>
-          <div class="progress__back-layer" ref="progressBackLayerRef" :style="{ width: `${PROGRESS_PREVIEW}px` }">
+          <div class="progress__predictional" ref="progressPredictRef" :style="{ width: `${PROGRESS_PREVIEW}px` }">
           </div>
         </div>
       </div>
@@ -489,7 +490,7 @@ function randomizerHandler() {
   z-index: 5;
 }
 
-.progress__back-layer {
+.progress__predictional {
   position: absolute;
   inset-block: 0 0;
   overflow: hidden;
