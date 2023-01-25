@@ -55,10 +55,6 @@ import FirstApproach from './components/FirstApproach.vue'
   font-weight: bold;
 }
 
-.element__input:last-child button {
-  margin-block-start: 0;
-}
-
 .add-source-btn {
   color: var(--bar-backdrop);
   background-color: var(--add-hp);
