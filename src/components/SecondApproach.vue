@@ -50,11 +50,10 @@ const PROGRESS_BAR_WIDTH = 160; // '160px' = '10rem'
 const ALL_SOURCE_POINTS = 2000; // All points includes in progress bar
 const COUNTER_SPEED = 20;
 const TIMEOUT = 1000 // ms
-let COUNTER_DURATION = ref(500); // 500ms
 let PROGRESS = 0;
 let PROGRESS_PREVIEW = 0;
 let RANDOM_RANGE = 15
-let ONE_ENEMY = 400;
+let ONE_ENEMY = 150;
 let DEATH_PERCENT = 10; // 10% of 100
 
 // Randomize resouce value
@@ -84,8 +83,13 @@ function sourceHandler(source: number, isAccumulate: boolean) {
     source = source + randomizeSource
   }
 
+  // Getting the DEATH_PERCENT number
   if (!isAccumulate) {
     source = ALL_SOURCE_POINTS * (source / 100)
+  }
+  // If source remains less than 100 points
+  if (!isAccumulate && 100 >= initSourceValue.value) {
+    source = initSourceValue.value
   }
 
   // Calculate min and max values for each iteration in current source
@@ -97,7 +101,6 @@ function sourceHandler(source: number, isAccumulate: boolean) {
   // EXTRA: calculate preview width and
   let memorize = (PROGRESS_BAR_WIDTH * source) / ALL_SOURCE_POINTS;
 
-  console.log(PROGRESS_PREVIEW, memorize, initSourceValue.value);
   sourceRef.value?.addEventListener('transitionend', function () {
 
     PROGRESS_PREVIEW = predictionStep(memorize, isAccumulate)
@@ -122,17 +125,18 @@ function sourceHandler(source: number, isAccumulate: boolean) {
       counterRef.value?.classList.add('pause')
       if (!isAccumulate) {
         totalSource(source, 'decrease')
-        loseSource(source)
       }
     }, TIMEOUT / 2)
 
     // STEP III
     const stemThree = setTimeout(() => {
-      counterRef.value?.classList.remove('pause')
+      if (!isAccumulate) {
+        loseSource(source)
+      }
       if (isAccumulate) {
+        counterRef.value?.classList.remove('pause')
         totalSource(source, 'increase')
       }
-
     }, TIMEOUT)
 
     // STEP IV
@@ -206,7 +210,8 @@ function loseSource(source: number) {
       // Adding the last value to the counter
       initCounterValue.value = source;
       initCounterSum.value = initCounterSum.value <= 0 ? 0 : initCounterSum.value - source;
-
+      // Remove pause animation
+      counterRef.value?.classList.remove('pause')
       clearInterval(interval);
       return;
     }
@@ -215,8 +220,10 @@ function loseSource(source: number) {
   }, COUNTER_SPEED);
 }
 
+
 function totalSource(source: number, calculation: 'increase' | 'decrease') {
-  const accBreak = calculation === "increase" ? initSourceValue.value + source : initSourceValue.value - source;
+  const limit = calculation === "increase" ? initSourceValue.value + source : initSourceValue.value - source;
+  let intervalExtraBreak = 0
   let accumulation = 0
 
   if (calculation === 'decrease') {
@@ -225,15 +232,22 @@ function totalSource(source: number, calculation: 'increase' | 'decrease') {
       accumulation = initSourceValue.value - Math.floor(Math.random() * (max.value - min.value));
       // If the accumulation egual or below 0,
       // the iteration will stop.
-      if (initSourceValue.value <= 0) {
+      if (initSourceValue.value <= 0 || accumulation < 0) {
         initSourceValue.value = 0;
         clearInterval(interval);
         return;
       }
       // If the accumulation less or equal total source
-      if (accumulation <= accBreak) {
+      if (accumulation <= limit) {
         // Adding the last value to the counter
-        initSourceValue.value = accBreak;
+        initSourceValue.value = limit;
+        clearInterval(interval);
+        return;
+      }
+      // Extra break after 80 iteractions to prevent infinite loop
+      intervalExtraBreak++
+      if (intervalExtraBreak === 60) {
+        initSourceValue.value = limit;
         clearInterval(interval);
         return;
       }
@@ -244,6 +258,7 @@ function totalSource(source: number, calculation: 'increase' | 'decrease') {
 
   if (calculation === 'increase') {
     const interval = setInterval(() => {
+
       // Increasing and saving random value for each iteration
       accumulation = initSourceValue.value + Math.floor(Math.random() * (max.value - min.value));
       // If the accumulation exceeds the max. amount of source points,
@@ -254,9 +269,16 @@ function totalSource(source: number, calculation: 'increase' | 'decrease') {
         return;
       }
       // If the accumulation more or equal total source
-      if (accumulation >= accBreak) {
+      if (accumulation >= limit) {
         // Adding the last value to the counter
-        initSourceValue.value = accBreak;
+        initSourceValue.value = limit;
+        clearInterval(interval);
+        return;
+      }
+      // Extra break after 80 iteractions to prevent infinite loop
+      intervalExtraBreak++
+      if (intervalExtraBreak === 60) {
+        initSourceValue.value = limit;
         clearInterval(interval);
         return;
       }
