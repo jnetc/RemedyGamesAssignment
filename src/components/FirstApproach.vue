@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, Ref, computed } from 'vue';
 
-
 const PROGRESS_BAR_WIDTH = 160; // '160px' = '10rem'
 const ALL_SOURCE_POINTS = 2000; // All points includes in progress bar
 let COUNTER_SPEED = 20;
@@ -28,7 +27,6 @@ const amountRef = ref<HTMLElement | null>(null);
 const progressBarRef = ref<HTMLElement | null>(null);
 const progressWrapperRef = ref<HTMLElement | null>(null);
 const progressPredictRef = ref<HTMLElement | null>(null); // EXTRA: Predictional
-
 
 // Randomize resouce value
 const max = ref(0);
@@ -433,14 +431,6 @@ function randomizerHandler() {
 </template>
 
 <style scoped>
-:root {
-  --ui-element: hsl(60, 14%, 99%);
-  --bar-color: hsl(187, 86%, 41%);
-  --bar-backdrop: hsl(162, 13%, 26%);
-  --add-hp: hsl(169, 67%, 43%);
-  --remove-hp: hsl(0, 67%, 43%);
-}
-
 /* PROGRESS BAR */
 .progress {
   width: 10rem;
@@ -602,50 +592,5 @@ function randomizerHandler() {
 .move-down-and-hide {
   opacity: 0;
   transform: translate3d(0, 0, 0);
-}
-
-/* UI CONTROL PANEL */
-.elements-ui {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem 1rem;
-}
-
-.element__input {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.element__input label {
-  width: max-content;
-  font-size: 0.9rem;
-}
-
-.element__input input {
-  padding: 0.3rem 0.1rem;
-  width: 100%;
-  font-size: 1.1rem;
-}
-
-.element__input button {
-  margin-block-start: 0.3rem;
-  padding: 0.4rem 1rem;
-  font-size: 1.1rem;
-  font-weight: bold;
-}
-
-.element__input:last-child button {
-  margin-block-start: 0;
-}
-
-.add-source-btn {
-  color: var(--bar-backdrop);
-  background-color: var(--add-hp);
-}
-
-.remove-source-btn {
-  color: var(--ui-element);
-  background-color: var(--remove-hp);
 }
 </style>

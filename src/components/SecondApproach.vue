@@ -1,51 +1,6 @@
-<template>
-  <main>
-    <section class="scene">
-      <div class="source" ref="sourceRef">
-        <div class="source__icon">
-          <svg viewBox="0 0 34 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M0.998199 31.9837L6.43541 11.4877C6.46181 11.3882 6.60326 11.3887 6.62891 11.4885L11.8997 31.9837H0.998199Z"
-              fill="white" />
-            <path
-              d="M23.0895 31.9837L28.5267 11.4877C28.5531 11.3882 28.6946 11.3887 28.7202 11.4885L33.991 31.9837H23.0895Z"
-              fill="white" />
-            <path
-              d="M11.9192 21.3689L17.3564 0.872988C17.3828 0.773454 17.5243 0.773991 17.5499 0.873723L22.8207 21.3689H11.9192Z"
-              fill="white" />
-          </svg>
-        </div>
-        <span class="source__amount" ref="amountRef">{{ initSourceValue }}</span>
-        <span class="source__counter" ref="counterRef">{{ initCounterValue }}</span>
-      </div>
-      <div class="progress">
-        <div class="progress__wrapper" ref="progressWrapperRef">
-          <div class="progress__bar" ref="progressBarRef"
-            :style="{ width: `${PROGRESS_BAR_WIDTH}px`, left: `-${PROGRESS_BAR_WIDTH}px`, transform: `translateX(${PROGRESS}px)` }">
-          </div>
-          <div class="progress__prediction" ref="progressPredictRef" :style="{ width: `${PROGRESS_PREVIEW}px` }">
-          </div>
-        </div>
-      </div>
-      <img src="/bg.webp" alt="bg" />
-    </section>
-    <section class="elements-ui">
-      <div class="element__input">
-        <label for="one-source">One enemy source</label>
-        <input type="text" name="one" id="one-source" v-model.number.trim="ONE_ENEMY" />
-        <button class="add-source-btn" @click="sourceHandler(ONE_ENEMY, true)">Add</button>
-      </div>
-      <div class="element__input">
-        <label for="remove-source">Remove source %</label>
-        <input type="text" name="remove" id="remove-source" v-model.number.trim="DEATH_PERCENT" />
-        <button class="remove-source-btn" @click="sourceHandler(DEATH_PERCENT, false)">Remove</button>
-      </div>
-    </section>
-  </main>
-</template>
-
 <script setup lang="ts">
 import { ref } from 'vue';
+
 const PROGRESS_BAR_WIDTH = 160; // '160px' = '10rem'
 const ALL_SOURCE_POINTS = 2000; // All points includes in progress bar
 const COUNTER_SPEED = 20;
@@ -55,12 +10,6 @@ let PROGRESS_PREVIEW = 0;
 let RANDOM_RANGE = 15
 let ONE_ENEMY = 150;
 let DEATH_PERCENT = 10; // 10% of 100
-
-// Randomize resouce value
-const max = ref(0);
-const min = ref(0);
-const forMax = 300;
-const forMin = 100;
 
 const initSourceValue = ref(0);
 const initCounterValue = ref(0);
@@ -73,6 +22,12 @@ const amountRef = ref<HTMLElement | null>(null);
 const progressBarRef = ref<HTMLElement | null>(null);
 const progressWrapperRef = ref<HTMLElement | null>(null);
 const progressPredictRef = ref<HTMLElement | null>(null); // EXTRA: Predictional
+
+// Randomize resouce value
+const max = ref(0);
+const min = ref(0);
+const forMax = 300;
+const forMin = 100;
 
 function sourceHandler(source: number, isAccumulate: boolean) {
 
@@ -326,6 +281,52 @@ function sourceProgress(source: number, calculation: 'increase' | 'decrease') {
   }
 }
 </script>
+
+<template>
+  <main>
+    <section class="scene">
+      <div class="source" ref="sourceRef">
+        <div class="source__icon">
+          <svg viewBox="0 0 34 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M0.998199 31.9837L6.43541 11.4877C6.46181 11.3882 6.60326 11.3887 6.62891 11.4885L11.8997 31.9837H0.998199Z"
+              fill="white" />
+            <path
+              d="M23.0895 31.9837L28.5267 11.4877C28.5531 11.3882 28.6946 11.3887 28.7202 11.4885L33.991 31.9837H23.0895Z"
+              fill="white" />
+            <path
+              d="M11.9192 21.3689L17.3564 0.872988C17.3828 0.773454 17.5243 0.773991 17.5499 0.873723L22.8207 21.3689H11.9192Z"
+              fill="white" />
+          </svg>
+        </div>
+        <span class="source__amount" ref="amountRef">{{ initSourceValue }}</span>
+        <span class="source__counter" ref="counterRef">{{ initCounterValue }}</span>
+      </div>
+      <div class="progress">
+        <div class="progress__wrapper" ref="progressWrapperRef">
+          <div class="progress__bar" ref="progressBarRef"
+            :style="{ width: `${PROGRESS_BAR_WIDTH}px`, left: `-${PROGRESS_BAR_WIDTH}px`, transform: `translateX(${PROGRESS}px)` }">
+          </div>
+          <div class="progress__prediction" ref="progressPredictRef" :style="{ width: `${PROGRESS_PREVIEW}px` }">
+          </div>
+        </div>
+      </div>
+      <img src="/bg.webp" alt="bg" />
+    </section>
+    <section class="elements-ui">
+      <div class="element__input">
+        <label for="one-source">One enemy source</label>
+        <input type="text" name="one" id="one-source" v-model.number.trim="ONE_ENEMY" />
+        <button class="add-source-btn" @click="sourceHandler(ONE_ENEMY, true)">Add</button>
+      </div>
+      <div class="element__input">
+        <label for="remove-source">Remove source %</label>
+        <input type="text" name="remove" id="remove-source" v-model.number.trim="DEATH_PERCENT" />
+        <button class="remove-source-btn" @click="sourceHandler(DEATH_PERCENT, false)">Remove</button>
+      </div>
+    </section>
+  </main>
+</template>
 
 <style scoped>
 /* PROGRESS BAR */
